@@ -1,0 +1,335 @@
+<!doctype html>
+<html> <head>
+<title>API Example- Noteflight Music Notation Software</title>
+<meta name="description" content="Noteflight provides a Client API Example page allowing developers test various API elements." />
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+<script src="https://www.noteflight.com/clientapi/2.0.0/nfclient.js"></script>
+
+<style media="screen" type="text/css">
+div {
+  font-family: Arial;
+}
+.actionList {
+  display: inline-block;
+  padding-bottom: 20px;
+  vertical-align: top;
+}
+
+#transpositions {
+  font-size: 0.75em;
+}
+
+#dropTarget {
+  color: #666666;
+  padding: 10px;
+  vertical-align: middle;
+  border: #666666;
+  border-style: solid;
+}
+</style>
+
+</head>
+
+<body>
+<h1></h1>
+
+<!-- links and such for testing API interactions -->
+<div class="actionList">
+  Selection/Editing
+  <br/><a href="javascript:score1.selectFragment('#')">nothing</a>
+  <br/><a href="javascript:score1.selectFragment('#m1')">#m1</a>
+  <br/><a href="javascript:score1.selectFragment('#m3')">#m3</a>
+  <br/><a href="javascript:score1.selectFragment('#m5')">#m5</a>
+  <br/><a href="javascript:score1.selectFragment('#m7')">#m7</a>
+  <br/><a href="javascript:score1.selectMeasures(0, 1)">measure 1</a>
+  <br/><a href="javascript:score1.selectMeasures(3, 6)">measures 4-6</a>
+  <br/><a href="javascript:score1.selectMeasures(0, -1)">whole score</a>
+  <br/><a href="javascript:score1.selectRange(2, 0, 3, 2)">range 2.0-3.5, all staves</a>
+  <br/><a href="javascript:score1.selectRange(2, 0, 3, 4, [1])">range 2.0-4, lower staff</a>
+  <br/><a href="javascript:score1.deleteSelection()"> delete selection</a>
+  <br/><a href="javascript:score1.clearSelection()">clear selection</a>
+</div>
+<div class="actionList">
+  Playback
+  <br/><a href="javascript:score1.playFromSelection()">Play from selection</a>
+  <br/><a href="javascript:score1.playFromMeasure(2)">Play from measure 2</a>
+  <br/><a href="javascript:score1.playFromMeasure(3)">Play from measure 3</a>
+  <br/><a href="javascript:score1.stopPlayback()">Stop playback</a>
+  <br><a href = "javascript:score1.setPlaybackSpeed(1)">double time</a>
+  <br><a href = "javascript:score1.setPlaybackSpeed(-1)">half time</a>
+</div>
+<div class="actionList">
+  Display
+  <br><a href="javascript:score1.showPositionCursor(2, 1)">cursor to 3, beat 1</a>
+  <br/><a href="javascript:score1.showPositionCursor(2, 1.5)">cursor to 3, beat 1.5</a>
+  <br/><a href="javascript:score1.hidePositionCursor()">hide cursor</a>
+  <br/><a href="javascript:score1.setVisibleParts([0])">Show part 0</a>
+  <br/><a href="javascript:score1.setVisibleParts([1])">Show part 1</a>
+  <br/><a href="javascript:score1.setVisibleParts([0,1])">Show all parts</a>
+  <br/><a href="javascript:score1.setVisibleParts([])">Show no parts</a>
+  <br/><i>Experimental:</i>
+  <br/><a href="javascript:score1.setPerformanceMode(true)">Set Performance Mode</a>
+  <br/><a href="javascript:score1.setPerformanceMode(false)">Clear Performance Mode</a>
+  <br/><a href="javascript:score1.scrollToPreviousPage()">Previous Page</a>
+  <br/><a href="javascript:score1.scrollToNextPage()">Next Page</a>
+  <br/><a href="javascript:score1.overrideStaffClef(0, 'alto')">Clef Override</a>
+</div>
+<div class="actionList">
+  Import/Export
+  <div id="dropTarget">Drop XML Files Here</div>
+  <br/><a href="javascript:pasteNotes()">Paste Note Sets</a>
+  <br/><a href="javascript:score1.getScore().done(showScore)">Get Score</a>
+  <br/><a href="javascript:score1.getNoteflightXML().done(showString)">Get NoteflightXML</a>
+  <br/><a href="javascript:score1.getMusicXML().done(showString)">Get MusicXML</a>
+</div>
+<div class="actionList">
+  Transposition
+  <br><a href = "javascript:score1.transpose({semitones: -10})">transpose down m7</a>
+  <br/><a href = "javascript:score1.transpose({semitones: 0})">don't transpose</a>
+  <br/><a href = "javascript:score1.transpose({semitones: 10})">transpose up m7</a>
+  <br/><a href = "javascript:score1.transpose({semitones: -10, ignoreStemDirection: true})">transpose down m7 (ignore stems)</a>
+  <br/><a href = "javascript:score1.transpose({semitones: 0, resumePlayback: true})">remove transposition, resume playback</a>
+  <br/><a href = "javascript:score1.transpose({semitones: 10, ignoreStemDirection: true})">transpose up m7 (ignore stems)</a>
+</div>
+
+<br/>
+
+<script>
+
+var score;
+
+function pasteNotes() {
+    var noteSets = [
+        {position:0, duration: 0.75, notes: [{pitch:48, step:0},{pitch:49, step:1}], beam: true},
+        {position:0.75, duration: 0.25, notes: [{pitch:50, step:1, tied: true}]},
+        {position:1, duration: 1, notes: [{pitch:50, step:1, noteHead: 'cross'}]},
+        {position:2, duration: 2, notes: [{pitch:52, step:2}]},
+    ];
+    score1.pasteNoteSets(noteSets, 0, 0, 0);
+}
+
+
+// Sets up callback to handleSelection() once page is fully loaded
+// 
+function noteflightEventHandler(e)
+{
+    if (e.type == "scoreDataLoaded")
+    {
+        setUpControls();
+    }
+    var text = new Date().toString() + " ";
+    for (var prop in e)
+    {
+        text += prop + "=" + e[prop] + " ";
+    }
+
+    document.getElementById('eventType').innerHTML = text;
+}
+
+//sets up transposition ui
+function setUpControls()
+{
+  score1.getTransposeParts().done(function(val) {document.getElementById('ucp').checked = val;});
+  score1.getMasterGain().done(function(val) {document.getElementById('gain').value = val;});
+  score1.getNoteSize().done(function(val) {document.getElementById('noteSize').value = val;});
+  score1.getZoom().done(function(val) {document.getElementById('zoom').value = val;});
+  score1.getTranspositions().done(function(val) {document.getElementById('transpositions').innerHTML = JSON.stringify(val, null, '');});
+  score1.getPlaybackTransposition().done(function(val) {document.getElementById('pitch').value = val;});
+
+    /*global*/
+    score1.getParts().done(function(parts) {
+      window.parts = parts;
+    var html = "";
+    function row()
+    {
+        var row = "<tr>";
+        for (var j = 0; j < arguments.length; j++)
+        {
+            row += "<td>" + arguments[j] + "</td>";
+        }
+        row += "</tr>";
+        return row;
+    }
+    function checkbox(checked, id)
+    {
+        return '<input type="checkbox" ' + (checked ? "checked " : "")
+                + 'id="' + id + '" onchange="handleFormChange()" />';
+    }
+    html += row("Name", "Muted", "Visible", "Transposition", "Alternate Key");
+    for (var i = 0; i < parts.length; i++)
+    {
+        var part = parts[i];
+        html += row(part.name, checkbox(part.muted, "muted" + i),
+                    checkbox(part.visible, "visible" + i),
+                    '<input type="text" value="' + part.transposition
+                    + '" id="transposition' + i + '" onchange="handleFormChange()" />',
+                    checkbox(part.alternateKey, "alternateKey" + i));
+    }
+    html = "<table>" + html + "</table>";
+    document.getElementById("partsTable").innerHTML = html;
+    });
+}
+
+function handleFormChange(e)
+{
+    e = e || window.event;
+    var target = e.target || e.srcElement;
+    var match = /([A-Za-z]+)([0-9]+)/.exec(target.getAttribute("id"));
+    var prop = match[1], partInd = match[2], val;
+    if (target.getAttribute("type") == "checkbox")
+    {
+        val = target.checked;
+    }
+    else
+    {
+        val = parseInt(target.value);
+    }
+    parts[partInd][prop] = val;
+    score1.setPartProperties(partInd, parts[partInd]);
+}
+
+// Displays some information about the first note of a score
+//
+function showScore(score)
+{
+    document.getElementById('displayArea').value = JSON.stringify(score, null, "  ");
+}
+
+function showString(s)
+{
+    document.getElementById('displayArea').value = s;
+}
+
+var score1;
+
+function loadScore(app)
+{
+  var viewParams = {
+    scale: $('#scaleInput').val() || null,
+    role: $('#roleSelect').val() || null,
+    displayMode: $('#displayModeSelect').val() || null,
+    playback: $('#playbackSelect').val() || null,
+    app: app
+  };
+
+  var options = {
+    protocol: window.location.protocol,
+    host: $('#hostnameInput').val(),
+    width: 800,
+    height: 400,
+    viewParams: viewParams
+  };
+  
+  score1 = new NFClient.ScoreView('score1', $('#scoreIdInput').val(), options);
+  score1.addEventListener('any', noteflightEventHandler);
+};
+
+function createFrame() {
+  if (score1) {
+    score1.removeEventListener('any', noteflightEventHandler);
+  }
+  $('#score1').empty();
+  $('#score1').append('<iframe id="score1Frame" src="http://' + $('#hostnameInput').val() + '/embed/' + $('#scoreIdInput').val() + '?scale=1" width="100%" height="200"></iframe>')
+}
+
+function handleScoreDrop (e) {
+  this.className = '';
+  e.preventDefault();
+
+  var file = e.dataTransfer.files[0],
+      reader = new FileReader();
+  reader.onload = function (event) {
+    var score = reader.result;
+    if (score.match(/noteflightScore/)) {
+      score1.loadNoteflightXML(reader.result);
+    }
+    else {
+      score1.loadMusicXML(reader.result);
+    }
+  };
+  reader.readAsText(file);
+
+  return false;
+}
+
+function connectToFrame() {
+  score1 = new NFClient.ScoreView(document.getElementById('score1Frame'));
+  score1.addEventListener('any', noteflightEventHandler);
+}
+
+$(function() {
+  NFClient.init(function(info) {
+    console.log("API version", info.version);
+  })
+  $('#dropTarget')[0].ondragover = function() {return false;}
+  $('#dropTarget')[0].ondragend = function() {return false;}
+  $('#dropTarget')[0].ondrop = handleScoreDrop;
+})
+
+</script>
+<form>
+  <div>Hostname: <input id="hostnameInput" type="text" value="www.noteflight.com" style="width: 300px;"></div>
+  <div>Score ID: <input id="scoreIdInput" type="text" value="c79be75c793c3b185365c241a04045e7df05d238" style="width: 300px;"></div>
+  <div>Scale: <input id="scaleInput" type="text" value="1.5"></div>
+  <div>Role:
+    <select id="roleSelect">
+      <option selected value="">(none)</option>
+      <option>reader</option>
+      <option>template</option>
+    </select>
+  </div>
+  <div>Display Mode:
+    <select id="displayModeSelect">
+      <option selected value="">(none)</option>
+      <option>strip</option>
+      <option>paginated</option>
+      <option>flow</option>
+    </select>
+  </div>
+  <div>Playback
+    <select id="playbackSelect">
+      <option selected value="">(none)</option>
+      <option>normal</option>
+      <option>audioTrack</option>
+      <option>echo</option>
+      <option>silent</option>
+    </select>
+  </div>
+</form>
+
+<div>Score loading actions:
+  <br/>
+  <button onclick="loadScore()">Load Default</button>
+  <button onclick="loadScore('flash')">Load Flash</button>
+  <button onclick="loadScore('html5')">Load HTML5</button>
+  <br/>
+  <button onclick="createFrame()">Create Iframe</button>
+  <button onclick="connectToFrame()">Connect to Iframe</button>
+</div>
+
+<!-- Field that is updated to a selection fragment on callback -->
+<hr>
+<div id="score1">[score frame will be loaded here]</div>
+<hr>
+
+<div>Event: <span id="eventType"></span></div>
+
+<div>
+<br/>Transpose parts: <input type="checkbox" id="ucp" onchange="score1.setTransposeParts(document.getElementById('ucp').checked)" />
+<br/>Master Gain: <input type="text" id="gain" onchange="score1.setMasterGain(document.getElementById('gain').value)" />
+Master Pitch: <input type="text" id="pitch" onchange="score1.setPlaybackTransposition(document.getElementById('pitch').value)" />
+<br/>Note Size: <input type="text" id="noteSize" onchange="score1.setNoteSize(document.getElementById('noteSize').value)" />
+Zoom: <input type="text" id="zoom" onchange="score1.setZoom(document.getElementById('zoom').value)" />
+<br/>Background: <input type="text" id="backgroundUrl" onchange="score1.setBackground(document.getElementById('backgroundUrl').value)" />
+<br/>Keys: <span id="transpositions"></span>
+</div>
+
+<br><div id="partsTable"></div>
+
+<br><br>
+
+<hr>
+
+<textarea id="displayArea" rows="10" cols="100"></textarea>
+
+</body> </html>
